@@ -1,0 +1,60 @@
+name: CI/CD Proyecto Semestral - Backend
+
+on:
+  push:
+    branches: [ "deploy" ]
+  workflow_dispatch:
+
+jobs:
+  build-push-deploy-backend:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v3
+
+    - name: Configurar credenciales AWS
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Login en Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v1
+      id: login-ecr
+
+    - name: Build imagen Backend y push a ECR
+      env:
+        ECR_REPO_URL_BACKEND: ${{ secrets.ECR_REPO_URL_BACKEND }}
+        IMAGE_TAG: latest
+      run: |
+        cd back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+        docker build -t $ECR_REPO_URL_BACKEND:$IMAGE_TAG .
+        docker push $ECR_REPO_URL_BACKEND:$IMAGE_TAG
+
+    - name: Desplegar Backend mediante AWS SSM
+      env:
+        ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+        ECR_REPO_URL_BACKEND: ${{ secrets.ECR_REPO_URL_BACKEND }}
+        AWS_REG: ${{ secrets.AWS_REGION }}
+        DB_IP: ${{ secrets.DATABASE_EC2_IP }}
+        DB_USER: ${{ secrets.MYSQL_USER }}
+        DB_PASS: ${{ secrets.MYSQL_PASSWORD }}
+      run: |
+        aws ssm send-command \
+          --instance-ids "${{ secrets.EC2_BACKEND_INSTANCE_ID }}" \
+          --document-name "AWS-RunShellScript" \
+          --comment "Desplegar Backend con variables limpias" \
+          --parameters '{
+            "commands":[
+              "set -e",
+              "aws ecr get-login-password --region '"$AWS_REG"' | sudo docker login --username AWS --password-stdin '"$ECR_REGISTRY"'",
+              "sudo docker pull '"$ECR_REPO_URL_BACKEND"':latest",
+              "sudo docker stop backend_despachos || true",
+              "sudo docker rm backend_despachos || true",
+              "sudo docker run -d --name backend_despachos -p 8080:8080 -e SPRING_DATASOURCE_URL=\"jdbc:mysql://'"$DB_IP"':3306/despacho_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC&createDatabaseIfNotExist=true\" -e SPRING_DATASOURCE_USERNAME=\"'"$DB_USER"'\" -e SPRING_DATASOURCE_PASSWORD=\"'"$DB_PASS"'\" '"$ECR_REPO_URL_BACKEND"':latest"
+            ]
+          }' \
+          --output text

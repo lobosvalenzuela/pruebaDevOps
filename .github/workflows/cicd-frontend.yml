@@ -1,0 +1,55 @@
+name: CI/CD Proyecto Semestral - Frontend
+
+on:
+  push:
+    branches: [ "deploy" ]
+  workflow_dispatch:
+
+jobs:
+  build-push-deploy-frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v3
+
+    - name: Configurar credenciales AWS
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Login en Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v1
+      id: login-ecr
+
+    - name: Build imagen de Frontend y push a ECR
+      env:
+        ECR_REPO_URL_FRONTEND: ${{ secrets.ECR_REPO_URL_FRONTEND }}
+        IMAGE_TAG: latest
+      run: |
+        cd front_despacho
+        docker build --no-cache -t $ECR_REPO_URL_FRONTEND:$IMAGE_TAG .
+        docker push $ECR_REPO_URL_FRONTEND:$IMAGE_TAG
+
+    - name: Desplegar Frontend vía SSM
+      env:
+        ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+        ECR_REPO_URL_FRONTEND: ${{ secrets.ECR_REPO_URL_FRONTEND }}
+      run: |
+        aws ssm send-command \
+          --instance-ids ${{ secrets.EC2_FRONTEND_INSTANCE_ID }} \
+          --document-name "AWS-RunShellScript" \
+          --comment "Actualizar front_despachos desde ECR." \
+          --parameters '{"commands":[
+            "set -e",
+            "export AWS_REGION=${{ secrets.AWS_REGION }}",
+            "aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin '"$ECR_REGISTRY"'",
+            "docker pull '"$ECR_REPO_URL_FRONTEND"':latest",
+            "docker stop front_despachos || true",
+            "docker rm front_despachos || true",
+            "docker run -d --name front_despachos -p 80:80 '"$ECR_REPO_URL_FRONTEND"':latest"
+          ]}' \
+          --output text
