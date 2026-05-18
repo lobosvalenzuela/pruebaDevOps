@@ -12,7 +12,7 @@ export const PruebaCards = () => {
       <div className="flex justify-center">
         <CardComponent
           title="Consultar Ordenes de compra 💰"
-          description="Revisa las últimas oc realizadas para generar su despacho"
+          description="PALESTINA LIBRE últimas oc realizadas para generar su despacho"
           buttonText="Consultar"
           onClick={() => {
             setTablaCompras(true);
