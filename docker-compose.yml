@@ -1,0 +1,97 @@
+services:
+  frontend:
+    build: ./front_despacho
+    container_name: aws-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend-ventas
+      - backend-despachos
+    networks:
+      - app-network
+
+  backend-ventas:
+    build: ./back-Ventas_SpringBoot/Springboot-API-REST
+    container_name: aws-backend-ventas
+    ports:
+      - "8081:8081"
+    environment:
+      - SERVER_PORT=8081
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db_ventas:3306/${MYSQL_DATABASE}
+      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
+    depends_on:
+      db_ventas:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: on-failure
+
+  backend-despachos:
+    build: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+    container_name: aws-backend-despachos
+    ports:
+      - "8082:8082"
+    environment:
+      - SERVER_PORT=8082
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db_despachos:3306/${MYSQL_DATABASE}
+      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
+    depends_on:
+      db_despachos:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: on-failure
+
+  db_ventas:
+    image: mysql:8.0
+    container_name: aws-db_ventas
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    ports:
+      - "${VENTAS_DB_PORT}:3306"
+    volumes:
+      - ventas_data:/var/lib/mysql
+      - ./db-init/db-ventas:/docker-entrypoint-initdb.d
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 300s
+
+  db_despachos:
+    image: mysql:8.0
+    container_name: aws-db_despachos
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    ports:
+      - "${DESPACHOS_DB_PORT}:3306"
+    volumes:
+      - despachos_data:/var/lib/mysql
+      - ./db-init/db-despachos:/docker-entrypoint-initdb.d
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 300s
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  ventas_data:
+  despachos_data:
