@@ -5,7 +5,9 @@ on:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
-  ECR_REPOSITORY: ventas-backend
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+  ECR_REPO_URL_BACKEND: ${{ secrets.ECR_REPO_URL_BACKEND }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPO_URL_BACKEND }}
 
 jobs:
   deploy:
@@ -15,7 +17,9 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Render ECS task definition
@@ -24,7 +28,7 @@ jobs:
         with:
           task-definition: ${{ secrets.VENTAS_ECS_TASK_DEFINITION }}
           container-name: ${{ secrets.VENTAS_ECS_CONTAINER_NAME }}
-          image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          image: ${{ env.ECR_REPO_URL_BACKEND }}:${{ github.sha }}
 
       - name: Deploy to Amazon ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
