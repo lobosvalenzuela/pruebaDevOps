@@ -17,11 +17,11 @@ services:
       - "8081:8081"
     environment:
       - SERVER_PORT=8081
-      - SPRING_DATASOURCE_URL=jdbc:mysql://db_ventas:3306/${MYSQL_DATABASE}
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/${MYSQL_DATABASE}
       - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
       - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
     depends_on:
-      db_ventas:
+      db:
         condition: service_healthy
     networks:
       - app-network
@@ -34,51 +34,29 @@ services:
       - "8082:8082"
     environment:
       - SERVER_PORT=8082
-      - SPRING_DATASOURCE_URL=jdbc:mysql://db_despachos:3306/${MYSQL_DATABASE}
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/${MYSQL_DATABASE}
       - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
       - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
     depends_on:
-      db_despachos:
+      db:
         condition: service_healthy
     networks:
       - app-network
     restart: on-failure
 
-  db_ventas:
+  db:
     image: mysql:8.0
-    container_name: aws-db_ventas
+    container_name: aws-db
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - MYSQL_DATABASE=${MYSQL_DATABASE}
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
     ports:
-      - "${VENTAS_DB_PORT}:3306"
+      - "3306:3306"
     volumes:
-      - ventas_data:/var/lib/mysql
-      - ./db-init/db-ventas:/docker-entrypoint-initdb.d
-    networks:
-      - app-network
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root"]
-      interval: 15s
-      timeout: 10s
-      retries: 20
-      start_period: 300s
-
-  db_despachos:
-    image: mysql:8.0
-    container_name: aws-db_despachos
-    environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-    ports:
-      - "${DESPACHOS_DB_PORT}:3306"
-    volumes:
-      - despachos_data:/var/lib/mysql
-      - ./db-init/db-despachos:/docker-entrypoint-initdb.d
+      - db_data:/var/lib/mysql
+      - ./db-init:/docker-entrypoint-initdb.d
     networks:
       - app-network
     healthcheck:
@@ -93,5 +71,4 @@ networks:
     driver: bridge
 
 volumes:
-  ventas_data:
-  despachos_data:
+  db_data:
