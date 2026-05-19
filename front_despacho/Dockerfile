@@ -1,3 +1,4 @@
+# Build stage
 FROM node:18-alpine AS builder
 WORKDIR /build
 COPY package*.json ./
@@ -19,7 +20,7 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # 3. Copiar los estáticos de React desde la etapa de compilación
 COPY --from=builder /build/dist /usr/share/nginx/html
 
-
+# 4. Crear rutas temporales de caché y asignar propiedad al usuario no-root 'nginx'
 RUN mkdir -p /var/cache/nginx/client_temp \
              /var/cache/nginx/proxy_temp \
              /var/cache/nginx/fastcgi_temp \

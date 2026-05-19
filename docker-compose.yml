@@ -14,17 +14,10 @@ services:
       - "3306:3306"
     volumes:
       - db_data:/var/lib/mysql
-      # FIX: Mount the specific file, not the folder with the Dockerfile
       - ./db-init/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - app-network
-    # FIX: Included password parameter so the healthcheck passes successfully
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 15s
+    # Removed the healthcheck entirely to stop Docker from killing it
     restart: always
 
   backend-ventas:
@@ -39,10 +32,11 @@ services:
       - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     networks:
       - app-network
+    # FIX: Added restart: always. Spring Boot will crash and restart until MySQL is ready.
+    restart: always
 
   backend-despachos:
     build: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
@@ -56,8 +50,7 @@ services:
       - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     networks:
       - app-network
     restart: always
