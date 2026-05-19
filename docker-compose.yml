@@ -1,14 +1,27 @@
 services:
-  frontend:
-    build: ./front_despacho
-    container_name: aws-frontend
+
+  db:
+    build:
+        context: ./db-init
+        dockerfile: Dockerfile
+    container_name: aws-db
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
     ports:
-      - "8080:80"
-    depends_on:
-      - backend-ventas
-      - backend-despachos
+      - "3306:3306"
+    volumes:
+    - db_data:/var/lib/mysql
+    - ./db-init:/docker-entrypoint-initdb.d
     networks:
       - app-network
+    healthcheck:
+      test: [ "CMD-SHELL", "mysqladmin ping -h localhost -u root" ]
+      timeout: 10s
+      retries: 10
+    restart: always
 
   backend-ventas:
     build: ./back-Ventas_SpringBoot/Springboot-API-REST
@@ -20,12 +33,12 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/${MYSQL_DATABASE}
       - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
       - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
     depends_on:
       db:
         condition: service_healthy
     networks:
       - app-network
-    restart: on-failure
 
   backend-despachos:
     build: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
@@ -37,38 +50,29 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/${MYSQL_DATABASE}
       - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
       - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
     depends_on:
       db:
         condition: service_healthy
     networks:
       - app-network
-    restart: on-failure
+    restart: always
 
-  db:
-    image: mysql:8.0
-    container_name: aws-db
-    environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+  frontend:
+    build: ./front_despacho
+    container_name: aws-frontend
     ports:
-      - "3306:3306"
-    volumes:
-      - db_data:/var/lib/mysql
-      - ./db-init:/docker-entrypoint-initdb.d
+      - "80:80"
+    depends_on:
+      - backend-ventas
+      - backend-despachos
     networks:
       - app-network
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root"]
-      interval: 15s
-      timeout: 10s
-      retries: 20
-      start_period: 300s
+    restart: always
+
+  volumes:
+    db_data:
 
 networks:
   app-network:
     driver: bridge
-
-volumes:
-  db_data:

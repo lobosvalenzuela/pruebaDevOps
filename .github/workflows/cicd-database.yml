@@ -2,7 +2,7 @@ name: CI/CD Proyecto Semestral - Database
 
 on:
   push:
-    branches: [ "deploy" ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -49,6 +49,6 @@ jobs:
             "docker pull '"$ECR_REPO_URL_DB"':latest",
             "docker stop db || true",
             "docker rm db || true",
-            "docker run -d --name db -p 3306:3306 -v mysql_data:/var/lib/mysql -e MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }} -e MYSQL_DATABASE=despacho_db -e MYSQL_USER=${{ secrets.MYSQL_USER }} -e MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }} '"$ECR_REPO_URL_DB"':latest"
+            "docker run -d --name db -p 3306:3306 -v mysql_data:/var/lib/mysql -e MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }} -e MYSQL_DATABASE=AWS_Proyecto -e MYSQL_USER=${{ secrets.MYSQL_USER }} -e MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }} '"$ECR_REPO_URL_DB"':latest"
           ]}' \
           --output text

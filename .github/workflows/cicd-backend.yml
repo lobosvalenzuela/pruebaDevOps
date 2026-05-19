@@ -1,8 +1,8 @@
-name: CI/CD Proyecto Semestral - Backend
+name: CI/CD Proyecto Semestral - Microservices Backend
 
 on:
   push:
-    branches: [ "deploy" ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -25,16 +25,25 @@ jobs:
       uses: aws-actions/amazon-ecr-login@v1
       id: login-ecr
 
-    - name: Build imagen Backend y push a ECR
+    - name: Build imagen Microservice 1 (8081 - Ventas) y push a ECR
       env:
         ECR_REPO_URL_BACKEND: ${{ secrets.ECR_REPO_URL_BACKEND }}
-        IMAGE_TAG: latest
+        IMAGE_TAG: ventas-latest
+      run: |
+        cd back-Ventas_SpringBoot/Springboot-API-REST
+        docker build -t $ECR_REPO_URL_BACKEND:$IMAGE_TAG .
+        docker push $ECR_REPO_URL_BACKEND:$IMAGE_TAG
+
+    - name: Build imagen Microservice 2 (8082 - Despachos) y push a ECR
+      env:
+        ECR_REPO_URL_BACKEND: ${{ secrets.ECR_REPO_URL_BACKEND }}
+        IMAGE_TAG: despachos-latest
       run: |
         cd back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
         docker build -t $ECR_REPO_URL_BACKEND:$IMAGE_TAG .
         docker push $ECR_REPO_URL_BACKEND:$IMAGE_TAG
 
-    - name: Desplegar Backend mediante AWS SSM
+    - name: Desplegar ambos Microservicios mediante AWS SSM
       env:
         ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
         ECR_REPO_URL_BACKEND: ${{ secrets.ECR_REPO_URL_BACKEND }}
@@ -46,15 +55,24 @@ jobs:
         aws ssm send-command \
           --instance-ids "${{ secrets.EC2_BACKEND_INSTANCE_ID }}" \
           --document-name "AWS-RunShellScript" \
-          --comment "Desplegar Backend con variables limpias" \
+          --comment "Desplegar ambos microservicios desde el mismo repositorio" \
           --parameters '{
             "commands":[
               "set -e",
               "aws ecr get-login-password --region '"$AWS_REG"' | sudo docker login --username AWS --password-stdin '"$ECR_REGISTRY"'",
-              "sudo docker pull '"$ECR_REPO_URL_BACKEND"':latest",
-              "sudo docker stop backend_despachos || true",
-              "sudo docker rm backend_despachos || true",
-              "sudo docker run -d --name backend_despachos -p 8080:8080 -e SPRING_DATASOURCE_URL=\"jdbc:mysql://'"$DB_IP"':3306/despacho_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC&createDatabaseIfNotExist=true\" -e SPRING_DATASOURCE_USERNAME=\"'"$DB_USER"'\" -e SPRING_DATASOURCE_PASSWORD=\"'"$DB_PASS"'\" '"$ECR_REPO_URL_BACKEND"':latest"
+              
+              "sudo docker pull '"$ECR_REPO_URL_BACKEND"':ventas-latest",
+              "sudo docker pull '"$ECR_REPO_URL_BACKEND"':despachos-latest",
+              
+              "sudo docker stop back-ventas || true",
+              "sudo docker rm back-ventas || true",
+              
+              "sudo docker stop back-despachos || true",
+              "sudo docker rm back-despachos || true",
+              
+              "sudo docker run -d --name back-ventas -p 8081:8081 -e SPRING_DATASOURCE_URL=\"jdbc:mysql://'"$DB_IP"':3306/despacho_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC&createDatabaseIfNotExist=true\" -e SPRING_DATASOURCE_USERNAME=\"'"$DB_USER"'\" -e SPRING_DATASOURCE_PASSWORD=\"'"$DB_PASS"'\" '"$ECR_REPO_URL_BACKEND"':ventas-latest",
+              
+              "sudo docker run -d --name back-despachos -p 8082:8082 -e SPRING_DATASOURCE_URL=\"jdbc:mysql://'"$DB_IP"':3306/despacho_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC&createDatabaseIfNotExist=true\" -e SPRING_DATASOURCE_USERNAME=\"'"$DB_USER"'\" -e SPRING_DATASOURCE_PASSWORD=\"'"$DB_PASS"'\" '"$ECR_REPO_URL_BACKEND"':despachos-latest"
             ]
           }' \
           --output text
