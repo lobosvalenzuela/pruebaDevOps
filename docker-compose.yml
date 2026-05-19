@@ -70,9 +70,11 @@ services:
       - app-network
     restart: always
 
-  volumes:
-    db_data:
+# GLOBAL VOLUMES (Moved to root level, zero indentation)
+volumes:
+  db_data:
 
+# GLOBAL NETWORKS
 networks:
   app-network:
     driver: bridge
